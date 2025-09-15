@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Морской бой против ИИ</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a2980, #26d0ce);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: white;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            width: 100%;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .game-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 40px;
+            max-width: 1000px;
+            width: 100%;
+        }
+        
+        .board-container {
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        h2 {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+        }
+        
+        .board {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            grid-template-rows: repeat(10, 1fr);
+            gap: 2px;
+            width: 300px;
+            height: 300px;
+            background-color: #0c4da2;
+            padding: 5px;
+            border-radius: 5px;
+        }
+        
+        .cell {
+            background-color: #b3d4ff;
+            border-radius: 2px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+        
+        .cell:hover {
+            background-color: #8bbfff;
+        }
+        
+        .cell.hit {
+            background-color: #ff6b6b;
+        }
+        
+        .cell.miss {
+            background-color: #c8d6e5;
+        }
+        
+        .cell.ship {
+            background-color: #576574;
+        }
+        
+        .cell.hit.ship::after {
+            content: "✖";
+            color: #ff6b6b;
+            font-size: 18px;
+        }
+        
+        .controls {
+            margin-top: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        button {
+            padding: 12px 25px;
+            background-color: #2e86de;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: all 0.2s ease;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
+        }
+        
+        button:hover {
+            background-color: #1c6bc2;
+            transform: translateY(-2px);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .message {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            text-align: center;
+            font-size: 1.2rem;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            max-width: 600px;
+        }
+        
+        .instructions {
+            margin-top: 20px;
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            max-width: 600px;
+            text-align: center;
+        }
+        
+        @media (max-width: 768px) {
+            .game-container {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .board {
+                width: 250px;
+                height: 250px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Морской бой против ИИ</h1>
+        <p>Потопите все корабли противника, чтобы победить!</p>
+    </header>
+    
+    <div class="game-container">
+        <div class="board-container">
+            <h2>Ваше поле</h2>
+            <div id="player-board" class="board"></div>
+        </div>
+        
+        <div class="board-container">
+            <h2>Поле противника</h2>
+            <div id="enemy-board" class="board"></div>
+        </div>
+    </div>
+    
+    <div class="controls">
+        <button id="start-button">Начать игру</button>
+        <button id="randomize-button">Случайная расстановка</button>
+    </div>
+    
+    <div id="message" class="message">Нажмите "Начать игру", чтобы начать!</div>
+    
+    <div class="instructions">
+        <h3>Как играть:</h3>
+        <p>1. Расставьте корабли на своем поле (или используйте случайную расстановку)</p>
+        <p>2. Нажмите "Начать игру"</p>
+        <p>3. Кликайте по полю противника, чтобы сделать выстрел</p>
+        <p>4. ИИ будет отвечать на ваши ходы</p>
+        <p>5. Побеждает тот, кто первым потопит все корабли противника</p>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Элементы DOM
+            const playerBoard = document.getElementById('player-board');
+            const enemyBoard = document.getElementById('enemy-board');
+            const startButton = document.getElementById('start-button');
+            const randomizeButton = document.getElementById('randomize-button');
+            const messageElement = document.getElementById('message');
+            
+            // Игровые переменные
+            let gameStarted = false;
+            let playerShips = [];
+            let enemyShips = [];
+            let playerHits = [];
+            let enemyHits = [];
+            let currentPlayer = 'player'; // 'player' или 'enemy'
+            
+            // Размеры кораблей
+            const shipSizes = [4, 3, 3, 2, 2, 2, 1, 1, 1, 1];
+            
+            // Создание игровых полей
+            function createBoards() {
+                playerBoard.innerHTML = '';
+                enemyBoard.innerHTML = '';
+                
+                for (let i = 0; i < 100; i++) {
+                    const playerCell = document.createElement('div');
+                    playerCell.classList.add('cell');
+                    playerCell.dataset.index = i;
+                    playerBoard.appendChild(playerCell);
+                    
+                    const enemyCell = document.createElement('div');
+                    enemyCell.classList.add('cell');
+                    enemyCell.dataset.index = i;
+                    enemyBoard.appendChild(enemyCell);
+                }
+            }
+            
+            // Расстановка кораблей
+            function placeShips(board, isPlayer) {
+                const ships = [];
+                const boardCells = Array(100).fill(null);
+                
+                for (const size of shipSizes) {
+                    let placed = false;
+                    
+                    while (!placed) {
+                        const direction = Math.random() > 0.5 ? 'horizontal' : 'vertical';
+                        const maxRow = direction === 'horizontal' ? 10 : 10 - size;
+                        const maxCol = direction === 'vertical' ? 10 : 10 - size;
+                        
+                        const startRow = Math.floor(Math.random() * maxRow);
+                        const startCol = Math.floor(Math.random() * maxCol);
+                        
+                        const shipCoordinates = [];
+                        let validPlacement = true;
+                        
+                        for (let i = 0; i < size; i++) {
+                            const row = direction === 'horizontal' ? startRow : startRow + i;
+                            const col = direction === 'vertical' ? startCol : startCol + i;
+                            const index = row * 10 + col;
+                            
+                            // Проверка на пересечение с другими кораблями и соседними клетками
+                            if (boardCells[index] !== null) {
+                                validPlacement = false;
+                                break;
+                            }
+                            
+                            // Проверка соседних клеток
+                            for (let r = Math.max(0, row - 1); r <= Math.min(9, row + 1); r++) {
+                                for (let c = Math.max(0, col - 1); c <= Math.min(9, col + 1); c++) {
+                                    const neighborIndex = r * 10 + c;
+                                    if (boardCells[neighborIndex] !== null) {
+                                        validPlacement = false;
+                                        break;
+                                    }
+                                }
+                                if (!validPlacement) break;
+                            }
+                            
+                            if (!validPlacement) break;
+                            
+                            shipCoordinates.push(index);
+                        }
+                        
+                        if (validPlacement) {
+                            shipCoordinates.forEach(index => {
+                                boardCells[index] = 'ship';
+                                if (isPlayer) {
+                                    playerBoard.children[index].classList.add('ship');
+                                }
+                            });
+                            
+                            ships.push(shipCoordinates);
+                            placed = true;
+                        }
+                    }
+                }
+                
+                return ships;
+            }
+            
+            // Случайная расстановка кораблей игрока
+            function randomizePlayerShips() {
+                if (gameStarted) return;
+                
+                // Очистка предыдущих кораблей
+                Array.from(playerBoard.children).forEach(cell => {
+                    cell.classList.remove('ship');
+                });
+                
+                playerShips = placeShips(playerBoard, true);
+                messageElement.textContent = 'Корабли расставлены! Нажмите "Начать игру"';
+            }
+            
+            // Начало игры
+            function startGame() {
+                if (playerShips.length === 0) {
+                    messageElement.textContent = 'Сначала расставьте корабли!';
+                    return;
+                }
+                
+                gameStarted = true;
+                enemyShips = placeShips(enemyBoard, false);
+                playerHits = [];
+                enemyHits = [];
+                currentPlayer = 'player';
+                
+                messageElement.textContent = 'Ваш ход! Атакуйте поле противника.';
+                
+                // Добавляем обработчики для вражеского поля
+                Array.from(enemyBoard.children).forEach(cell => {
+                    cell.addEventListener('click', handleEnemyCellClick);
+                });
+                
+                startButton.textContent = 'Перезапустить игру';
+            }
+            
+            // Обработчик клика по клетке противника
+            function handleEnemyCellClick(e) {
+                if (!gameStarted || currentPlayer !== 'player') return;
+                
+                const index = parseInt(e.target.dataset.index);
+                
+                // Проверка, не стреляли ли уже в эту клетку
+                if (playerHits.includes(index)) return;
+                
+                playerHits.push(index);
+                
+                // Проверка попадания
+                let hit = false;
+                for (const ship of enemyShips) {
+                    if (ship.includes(index)) {
+                        hit = true;
+                        e.target.classList.add('hit');
+                        
+                        // Проверка, потоплен ли корабль
+                        const shipSunk = ship.every(shipIndex => playerHits.includes(shipIndex));
+                        if (shipSunk) {
+                            messageElement.textContent = 'Вы потопили корабль противника!';
+                        } else {
+                            messageElement.textContent = 'Вы попали! Ход снова ваш.';
+                        }
+                        
+                        break;
+                    }
+                }
+                
+                if (!hit) {
+                    e.target.classList.add('miss');
+                    messageElement.textContent = 'Промах! Ход противника.';
+                    currentPlayer = 'enemy';
+                    
+                    // Ход ИИ
+                    setTimeout(enemyTurn, 800);
+                }
+                
+                // Проверка победы
+                if (checkWin(playerHits, enemyShips)) {
+                    endGame('player');
+                    return;
+                }
+                
+                if (currentPlayer === 'enemy') {
+                    enemyTurn();
+                }
+            }
+            
+            // Ход ИИ
+            function enemyTurn() {
+                if (!gameStarted || currentPlayer !== 'enemy') return;
+                
+                // Простой ИИ: сначала ищет раненые корабли, затем стреляет случайно
+                let index;
+                const potentialTargets = [];
+                
+                // Поиск раненых кораблей
+                for (const hit of enemyHits) {
+                    if (isHitButNotSunk(hit, enemyHits, playerShips)) {
+                        const neighbors = getNeighbors(hit);
+                        for (const neighbor of neighbors) {
+                            if (!enemyHits.includes(neighbor) && !potentialTargets.includes(neighbor)) {
+                                potentialTargets.push(neighbor);
+                            }
+                        }
+                    }
+                }
+                
+                if (potentialTargets.length > 0) {
+                    index = potentialTargets[Math.floor(Math.random() * potentialTargets.length)];
+                } else {
+                    // Случайный выстрел
+                    do {
+                        index = Math.floor(Math.random() * 100);
+                    } while (enemyHits.includes(index));
+                }
+                
+                enemyHits.push(index);
+                
+                // Проверка попадания
+                let hit = false;
+                for (const ship of playerShips) {
+                    if (ship.includes(index)) {
+                        hit = true;
+                        playerBoard.children[index].classList.add('hit');
+                        
+                        // Проверка, потоплен ли корабль
+                        const shipSunk = ship.every(shipIndex => enemyHits.includes(shipIndex));
+                        if (shipSunk) {
+                            messageElement.textContent = 'Противник потопил ваш корабль!';
+                        } else {
+                            messageElement.textContent = 'Противник попал в ваш корабль!';
+                        }
+                        
+                        break;
+                    }
+                }
+                
+                if (!hit) {
+                    playerBoard.children[index].classList.add('miss');
+                    messageElement.textContent = 'Противник промахнулся! Ваш ход.';
+                    currentPlayer = 'player';
+                } else {
+                    // ИИ продолжает ход после попадания
+                    setTimeout(enemyTurn, 800);
+                }
+                
+                // Проверка победы
+                if (checkWin(enemyHits, playerShips)) {
+                    endGame('enemy');
+                    return;
+                }
+            }
+            
+            // Проверка, является ли попадание частью еще не потопленного корабля
+            function isHitButNotSunk(hit, hits, ships) {
+                for (const ship of ships) {
+                    if (ship.includes(hit)) {
+                        return !ship.every(shipIndex => hits.includes(shipIndex));
+                    }
+                }
+                return false;
+            }
+            
+            // Получение соседних клеток
+            function getNeighbors(index) {
+                const row = Math.floor(index / 10);
+                const col = index % 10;
+                const neighbors = [];
+                
+                if (row > 0) neighbors.push((row - 1) * 10 + col); // Вверх
+                if (row < 9) neighbors.push((row + 1) * 10 + col); // Вниз
+                if (col > 0) neighbors.push(row * 10 + (col - 1)); // Влево
+                if (col < 9) neighbors.push(row * 10 + (col + 1)); // Вправо
+                
+                return neighbors;
+            }
+            
+            // Проверка победы
+            function checkWin(hits, ships) {
+                // Все корабли потоплены, если все их клетки есть в hits
+                return ships.every(ship => 
+                    ship.every(shipIndex => hits.includes(shipIndex))
+                );
+            }
+            
+            // Завершение игры
+            function endGame(winner) {
+                gameStarted = false;
+                
+                if (winner === 'player') {
+                    messageElement.textContent = 'Поздравляем! Вы выиграли!';
+                } else {
+                    messageElement.textContent = 'ИИ победил! Попробуйте еще раз.';
+                }
+                
+                // Удаляем обработчики кликов
+                Array.from(enemyBoard.children).forEach(cell => {
+                    cell.removeEventListener('click', handleEnemyCellClick);
+                });
+            }
+            
+            // Перезапуск игры
+            function restartGame() {
+                gameStarted = false;
+                playerShips = [];
+                enemyShips = [];
+                playerHits = [];
+                enemyHits = [];
+                currentPlayer = 'player';
+                
+                createBoards();
+                messageElement.textContent = 'Расставьте корабли или используйте случайную расстановку';
+                startButton.textContent = 'Начать игру';
+            }
+            
+            // Инициализация игры
+            function initGame() {
+                createBoards();
+                
+                // Обработчики кнопок
+                startButton.addEventListener('click', () => {
+                    if (gameStarted) {
+                        restartGame();
+                    } else {
+                        startGame();
+                    }
+                });
+                
+                randomizeButton.addEventListener('click', randomizePlayerShips);
+                
+                messageElement.textContent = 'Используйте "Случайная расстановка" или расставьте корабли вручную';
+            }
+            
+            // Запуск игры
+            initGame();
+        });
+    </script>
+</body>
+</html>
